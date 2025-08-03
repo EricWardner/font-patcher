@@ -1,6 +1,6 @@
 # Font Patcher
 
-A simple Nix flake for patching fonts with custom glyphs using FontForge.
+Nix flake for patching fonts with custom SVG glyphs using FontForge.
 
 ## Usage
 
@@ -12,34 +12,45 @@ Add to your `flake.nix`:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    font-patcher.url = "github:youruser/font-patcher"; # or path:./font-patcher
+    font-patcher.url = "github:ericwardner/font-patcher";
+    # ... other inputs
   };
 
-  outputs = { nixpkgs, font-patcher, ... }:
+  outputs = { nixpkgs, font-patcher, ... }@inputs:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
-      
-      # Create a patched font
-      my-patched-font = font-patcher.lib.${system}.patchFont {
-        baseFont = pkgs.cascadia-code;
-        svgGlyph = ./my-custom-glyph.svg;
-        unicodePoint = "0x2AF8";
+    in
+    {
+      homeConfigurations = {
+        "username" = home-manager.lib.homeManagerConfiguration {
+          inherit pkgs;
+          extraSpecialArgs = { inherit inputs; };
+          modules = [ ./home.nix ];
+        };
       };
-    in {
-      # Use in home-manager, etc.
     };
 }
 ```
 
-### In Home Manager
+### In Home Manager Configuration
+
+Use the font-patcher directly in your home.nix:
 
 ```nix
+{ pkgs, inputs, ... }:
+let
+  cascadia-code-patched = inputs.font-patcher.lib.${pkgs.system}.patchFont {
+    baseFont = pkgs.cascadia-code;
+    svgGlyph = ./themes/custom-glyph.svg;
+    unicodePoint = "0x276F";  # Your chosen Unicode point
+  };
+in
 {
   stylix = {
     fonts = {
       monospace = {
-        package = inputs.my-patched-font;
+        package = cascadia-code-patched;
         name = "Cascadia Code NF";
       };
     };
@@ -52,25 +63,48 @@ Add to your `flake.nix`:
 - `baseFont`: The base font package from nixpkgs (e.g., `pkgs.cascadia-code`)
 - `svgGlyph`: Path to your custom SVG glyph file
 - `unicodePoint`: Unicode codepoint as a string (e.g., `"0x2AF8"` or `"11000"`)
-- `name` (optional): Override the font name
+- `name` (optional): Custom name for the derivation (defaults to base font name)
 
 ## Examples
 
 ```nix
-# Patch JetBrains Mono with a custom prompt glyph
-jetbrains-patched = font-patcher.lib.${system}.patchFont {
-  baseFont = pkgs.jetbrains-mono;
-  svgGlyph = ./prompt-glyph.svg;
-  unicodePoint = "0x2AF8";
+# Patch Cascadia Code with a custom prompt glyph (as shown in real usage)
+cascadia-code-gw = inputs.font-patcher.lib.${pkgs.system}.patchFont {
+  baseFont = pkgs.cascadia-code;
+  svgGlyph = ./themes/uni2AF8_GW.svg;
+  unicodePoint = "0x276F";  # HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT
 };
 
-# Patch Fira Code with a custom icon
-fira-patched = font-patcher.lib.${system}.patchFont {
-  baseFont = pkgs.fira-code;
+# Patch JetBrains Mono with a custom icon
+jetbrains-patched = inputs.font-patcher.lib.${pkgs.system}.patchFont {
+  baseFont = pkgs.jetbrains-mono;
   svgGlyph = ./custom-icon.svg;
-  unicodePoint = "0xE000"; # Private Use Area
+  unicodePoint = "0xE000";  # Private Use Area
+};
+
+# Use with multiple font packages
+stylix = {
+  fonts = {
+    monospace = {
+      package = cascadia-code-gw;
+      name = "Cascadia Code NF";
+    };
+    
+    # You can use other fonts alongside patched ones
+    serif = {
+      package = inputs.apple-fonts.packages.${pkgs.system}.sf-pro-nerd;
+      name = "SFProText Nerd Font";
+    };
+  };
 };
 ```
+
+## Notes
+
+- The patcher preserves the original font directory structure (truetype, opentype, etc.)
+- All font variants in the package (regular, bold, italic, etc.) will be patched, if the glyph exists
+- The glyph is added to the specified Unicode codepoint in each font file
+- The patched font retains all original metadata
 
 ## Requirements
 
