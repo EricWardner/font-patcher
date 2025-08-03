@@ -1,5 +1,5 @@
 {
-  description = "Font patcher library";
+  description = "Nix flake for patching fonts with custom SVG glyphs";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
@@ -37,30 +37,19 @@
               buildPhase = ''
                 runHook preBuild
                 
-                mkdir -p fonts
-                
-                # Find all font files in the base package and patch them
-                find $src/share/fonts -name "*.ttf" -o -name "*.otf" | while read font; do
-                  # Get the relative path from share/fonts
-                  relpath=$(realpath --relative-to=$src/share/fonts "$font")
-                  # Create the directory structure
-                  mkdir -p "fonts/$(dirname "$relpath")"
-                  # Patch the font maintaining the relative path
-                  python3 ${./patch-font.py} "$font" "${unicodePoint}" "${svgGlyph}" "fonts/$relpath"
+                # Process each font, maintaining directory structure
+                cd $src/share/fonts
+                find . -name "*.ttf" -o -name "*.otf" | while read font; do
+                  mkdir -p "$out/share/fonts/$(dirname "$font")"
+                  python3 ${./patch-font.py} "$font" "${unicodePoint}" "${svgGlyph}" \
+                    "$out/share/fonts/$font"
                 done
                 
                 runHook postBuild
               '';
               
-              installPhase = ''
-                runHook preInstall
-                
-                mkdir -p $out/share/fonts
-                # Copy maintaining the directory structure
-                cp -r fonts/* $out/share/fonts/
-                
-                runHook postInstall
-              '';
+              # No install phase needed - we're writing directly to $out
+              dontInstall = true;
               
               meta = baseFont.meta // {
                 description = "${baseFont.meta.description or baseFont.name} with custom glyph patch";
