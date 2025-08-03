@@ -22,7 +22,9 @@
 
               src = baseFont;
 
-              nativeBuildInputs = [ pkgs.python3 pkgs.fontforge ];
+              nativeBuildInputs = [ 
+                (pkgs.python3.withPackages (ps: [ ps.fontforge ]))
+              ];
 
               dontUnpack = true;
 
