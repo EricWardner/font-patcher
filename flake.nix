@@ -20,8 +20,9 @@
         {
           patchFont = { baseFont, svgGlyph, unicodePoint, name ? baseFont.name }:
             pkgs.stdenv.mkDerivation {
-              pname = "${baseFont.pname}-patched";
-              version = baseFont.version;
+              pname = "${baseFont.pname or baseFont.name or "font"}-patched";
+              # Handle both cases: packages with version and without
+              version = baseFont.version or "patched";
               
               src = baseFont;
               
